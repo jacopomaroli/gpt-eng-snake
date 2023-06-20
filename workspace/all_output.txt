@@ -1,0 +1,214 @@
+Based on the specification and tests, here is the implementation of the multiplayer snake game:
+
+`game.py`
+```python
+from dataclasses import dataclass
+import random
+
+@dataclass
+class Position:
+    x: int
+    y: int
+
+class Snake:
+    def __init__(self, position):
+        self.body = [position]
+        self.direction = "right"
+
+    @property
+    def head_position(self):
+        return self.body[-1]
+
+    def move(self):
+        if self.direction == "up":
+            new_head = Position(self.head_position.x, self.head_position.y - 1)
+        elif self.direction == "down":
+            new_head = Position(self.head_position.x, self.head_position.y + 1)
+        elif self.direction == "left":
+            new_head = Position(self.head_position.x - 1, self.head_position.y)
+        elif self.direction == "right":
+            new_head = Position(self.head_position.x + 1, self.head_position.y)
+        self.body.append(new_head)
+
+    def grow(self):
+        self.body.insert(0, Position(-1, -1))
+
+class Food:
+    def __init__(self):
+        self.position = None
+
+    def place(self):
+        x = random.randint(0, 19)
+        y = random.randint(0, 19)
+        self.position = Position(x, y)
+
+class Player:
+    def __init__(self):
+        self.score = 0
+        self.snake = Snake(Position(10, 10))
+
+    def move(self, direction):
+        if direction == "up" and self.snake.direction != "down":
+            self.snake.direction = "up"
+        elif direction == "down" and self.snake.direction != "up":
+            self.snake.direction = "down"
+        elif direction == "left" and self.snake.direction != "right":
+            self.snake.direction = "left"
+        elif direction == "right" and self.snake.direction != "left":
+            self.snake.direction = "right"
+
+class Game:
+    def __init__(self):
+        self.players = []
+        self.snakes = []
+        self.food = []
+        self.winner = None
+
+    def start(self):
+        self.players = [Player(), Player()]
+        self.snakes = [player.snake for player in self.players]
+        self.food = [Food()]
+
+    def update(self):
+        for snake in self.snakes:
+            snake.move()
+            if snake.head_position.x < 0 or snake.head_position.x > 19 or snake.head_position.y < 0 or snake.head_position.y > 19:
+                self.snakes.remove(snake)
+            elif len(snake.body) > 1 and snake.head_position in snake.body[:-1]:
+                self.snakes.remove(snake)
+            else:
+                for food in self.food:
+                    if snake.head_position == food.position:
+                        snake.grow()
+                        self.players[self.snakes.index(snake)].score += 1
+                        self.food.remove(food)
+                        self.food.append(Food())
+
+        if len(self.snakes) == 1:
+            self.winner = self.players[self.snakes.index(self.snakes[0])]
+
+    def end(self):
+        pass
+```
+
+`index.html`
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multiplayer Snake</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="scoreboard">
+        <div id="player1-score"></div>
+        <div id="player2-score"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+```
+
+`style.css`
+```css
+#canvas {
+    border: 1px solid black;
+}
+
+#scoreboard {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+#player1-score {
+    background-color: red;
+    color: white;
+    padding: 5px;
+}
+
+#player2-score {
+    background-color: blue;
+    color: white;
+    padding: 5px;
+}
+```
+
+`script.js`
+```javascript
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const player1Score = document.getElementById("player1-score");
+const player2Score = document.getElementById("player2-score");
+
+const socket = new WebSocket("ws://localhost:8000");
+
+socket.onmessage = function(event) {
+    const gameState = JSON.parse(event.data);
+    draw(gameState);
+    updateScoreboard(gameState);
+}
+
+document.addEventListener("keydown", function(event) {
+    if (event.code === "ArrowUp" || event.code === "ArrowDown" || event.code === "ArrowLeft" || event.code === "ArrowRight") {
+        socket.send(event.code);
+    }
+});
+
+function draw(gameState) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let snake of gameState.snakes) {
+        ctx.fillStyle = snake.color;
+        for (let position of snake.body) {
+            ctx.fillRect(position.x * 20, position.y * 20, 20, 20);
+        }
+    }
+    for (let food of gameState.food) {
+        ctx.fillStyle = "green";
+        ctx.fillRect(food.position.x * 20, food.position.y * 20, 20, 20);
+    }
+}
+
+function updateScoreboard(gameState) {
+    player1Score.textContent = `Player 1: ${gameState.players[0].score}`;
+    player2Score.textContent = `Player 2: ${gameState.players[1].score}`;
+}
+```
+
+`server.py`
+```python
+import asyncio
+import json
+import websockets
+from game import Game
+
+async def game_loop(game):
+    while True:
+        game.update()
+        if game.winner != None:
+            break
+        await asyncio.sleep(0.1)
+
+async def handle_player(websocket, path, game):
+    player_index = len(game.players)
+    game.players.append(None)
+    await websocket.send(json.dumps({"playerIndex": player_index}))
+    async for message in websocket:
+        game.players[player_index].move(message)
+
+async def handle_game(websocket, path, game):
+    while True:
+        await websocket.send(json.dumps(game.__dict__))
+        await asyncio.sleep(0.1)
+
+async def main():
+    game = Game()
+    game.start()
+    game_loop_task = asyncio.create_task(game_loop(game))
+    async with websockets.serve(lambda websocket, path: handle_player(websocket, path, game), "localhost", 8000):
+        await asyncio.gather(game_loop_task)
+    game.end()
+
+asyncio.run(main())
+```

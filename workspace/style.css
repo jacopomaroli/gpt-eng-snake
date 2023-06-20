@@ -1,0 +1,21 @@
+#canvas {
+    border: 1px solid black;
+}
+
+#scoreboard {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+#player1-score {
+    background-color: red;
+    color: white;
+    padding: 5px;
+}
+
+#player2-score {
+    background-color: blue;
+    color: white;
+    padding: 5px;
+}

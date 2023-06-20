@@ -1,0 +1,29 @@
+The program is a multiplayer snake game that runs in the browser. The game should have the following features:
+
+1. The game should be able to handle multiple players simultaneously.
+2. Each player should control their own snake with the arrow keys on their keyboard.
+3. The game should have a grid-based playing field.
+4. The snakes should move continuously in the direction they are facing.
+5. The snakes should die if they collide with the walls or with each other.
+6. The snakes should grow in length when they eat food that appears randomly on the playing field.
+7. The game should keep track of each player's score.
+8. The game should end when only one snake is left alive, and that snake should be declared the winner.
+
+Core classes:
+- `Game`: This class will manage the game state and handle incoming player actions.
+- `Player`: This class will represent a player in the game and store their score and snake.
+- `Snake`: This class will represent a snake in the game and handle its movement and growth.
+- `Food`: This class will represent the food that appears on the playing field and handle its random placement.
+
+Core functions/methods:
+- `Game.start()`: This method will start the game and initialize the playing field, players, and snakes.
+- `Game.update()`: This method will update the game state every frame and handle collisions between snakes and food.
+- `Game.end()`: This method will end the game and declare the winner.
+- `Player.move()`: This method will handle the player's arrow key input and update the direction of their snake.
+- `Snake.move()`: This method will move the snake in its current direction and handle its growth when it eats food.
+- `Food.place()`: This method will randomly place the food on the playing field.
+
+HTML and JS:
+- `index.html`: This file will contain the HTML markup for the game canvas and player scoreboards.
+- `style.css`: This file will contain the CSS styling for the game canvas and player scoreboards.
+- `script.js`: This file will contain the JavaScript code for setting up the game canvas, handling player input, and streaming the game state to all connected players.
